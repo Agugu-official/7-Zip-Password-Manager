@@ -1,0 +1,165 @@
+<!--
+    首次启动向导：无配置文件时显示一次。
+    内容：7-Zip 未找到时提示 + 官网链接；系统集成两个选项（默认不勾选）；底部提示与确定按钮。
+-->
+<Window x:Class="_7_Zip_Password_Manager.Views.FirstRunWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:_7_Zip_Password_Manager.Helpers"
+        Title="{loc:T Key=firstRun.title}" Width="400" Height="Auto"
+        SizeToContent="Height" MinHeight="260" MaxHeight="480"
+        MinWidth="360" MaxWidth="460"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        Icon="/Assets/smart-unzip-48.png"
+        Background="{DynamicResource WindowBg}">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32"
+                      ResizeBorderThickness="0"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+            CornerRadius="8">
+        <Grid>
+            <Grid.Resources>
+                <Style TargetType="Button">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBg}" />
+                    <Setter Property="Foreground" Value="{DynamicResource ButtonFg}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlBorder}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="Padding" Value="12,4" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}"
+                                        CornerRadius="4">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background"
+                                                Value="{DynamicResource ButtonHover}" />
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.45" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+                <Style TargetType="GroupBox">
+                    <Setter Property="BorderBrush" Value="{DynamicResource GroupBoxBorder}" />
+                    <Setter Property="Foreground" Value="{DynamicResource WindowFg}" />
+                    <Setter Property="Padding" Value="8" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="GroupBox">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <Border Grid.Row="0" Grid.RowSpan="2"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Margin="0,8,0,0" />
+                                    <Border Grid.Row="0" Margin="8,0,0,0" Padding="4,0"
+                                            Background="{DynamicResource WindowBg}"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top">
+                                        <ContentPresenter ContentSource="Header"
+                                                          RecognizesAccessKey="True" />
+                                    </Border>
+                                    <ContentPresenter Grid.Row="1"
+                                                      Margin="{TemplateBinding Padding}" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Grid.Resources>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏（与设置窗口一致：图标+标题+关闭按钮） -->
+            <Grid Grid.Row="0" Background="{DynamicResource TitleBarBg}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                    <Image Source="/Assets/smart-unzip-32.png" Width="24" Height="24"
+                           RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,8,0" />
+                    <TextBlock x:Name="TitleText" Text="{loc:T Key=firstRun.title}"
+                               VerticalAlignment="Center"
+                               FontSize="13" Foreground="{DynamicResource TitleBarFg}" />
+                </StackPanel>
+                <Button HorizontalAlignment="Right" Content="✕" Click="Close_Click"
+                        Width="46" Height="32" FontSize="14"
+                        Foreground="{DynamicResource TitleBarFg}"
+                        Background="Transparent" BorderThickness="0"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background"
+                                            Value="{DynamicResource CloseHover}" />
+                                    <Setter Property="Foreground"
+                                            Value="{DynamicResource CloseHoverFg}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <!-- 内容区（与设置窗口一致的边距 16） -->
+            <StackPanel Grid.Row="1" Margin="16">
+                <!-- 7-Zip 未找到提示（条件显示） -->
+                <Border x:Name="SevenZipNoticePanel" Visibility="Collapsed"
+                        Background="{DynamicResource InputBg}"
+                        BorderBrush="{DynamicResource ControlBorder}"
+                        BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                    <TextBlock x:Name="SevenZipMessageBlock" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{DynamicResource WindowFg}" />
+                </Border>
+
+                <!-- 系统集成（与设置窗口相同的 GroupBox 样式） -->
+                <GroupBox Header="{loc:T Key=settingsWindow.sectionIntegration}" Padding="8" Margin="0,0,0,10">
+                    <StackPanel>
+                        <CheckBox x:Name="ContextMenuCheck" IsChecked="False"
+                                  Foreground="{DynamicResource WindowFg}">
+                            <TextBlock Text="{loc:T Key=settingsWindow.labelContextMenu}"
+                                       TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="AutoCloseCheck" IsChecked="False" Margin="0,8,0,0"
+                                  Foreground="{DynamicResource WindowFg}">
+                            <TextBlock Text="{loc:T Key=settingsWindow.labelAutoClose}"
+                                       TextWrapping="Wrap" />
+                        </CheckBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <TextBlock x:Name="HintSettings" Text="{loc:T Key=firstRun.hintSettingsLater}"
+                           FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                <Button x:Name="OkButton" Content="{loc:T Key=firstRun.btnOk}"
+                        Padding="20,6" HorizontalAlignment="Right"
+                        Click="OkButton_Click" IsDefault="True" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

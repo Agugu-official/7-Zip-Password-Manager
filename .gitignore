@@ -1,0 +1,49 @@
+# Build & IDE
+[Bb]in/
+[Dd]ebug*.log
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.env
+
+# Runtime / sensitive (never commit)
+**/pws/pws.json
+**/config/app.log
+**/publish/
+
+# NuGet
+[Dd]ebug/
+[Rr]elease/
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+
+# Test & coverage
+[Tt]est[Rr]esult*/
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coveragexml
+.coverage
+*.msCoverageSourceRootsMapping*
+
+# OS
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Rider / VS Code (optional)
+.idea/
+*.rsuser
+
+# Local AI/agent files (not part of the project)
+AGENTS.md
+PROJECT_PLAN.md
+CHANGELOG.md

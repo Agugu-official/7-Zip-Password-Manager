@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: |
+          dotnet restore "7-Zip Password Manager/7-Zip Password Manager.csproj"
+          dotnet restore "7-Zip Password Manager.Tests/7-Zip Password Manager.Tests.csproj"
+
+      - name: Build
+        run: |
+          dotnet build "7-Zip Password Manager/7-Zip Password Manager.csproj" -c Release --no-restore
+          dotnet build "7-Zip Password Manager.Tests/7-Zip Password Manager.Tests.csproj" -c Release --no-restore
+
+      - name: Test
+        run: dotnet test "7-Zip Password Manager.Tests/7-Zip Password Manager.Tests.csproj" -c Release --no-build --verbosity normal
+
+      - name: Set version from tag or default
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $ver = $env:GITHUB_REF_NAME -replace '^v', ''
+          } else {
+            $ver = '0.0.0-dev'
+          }
+          echo "APP_VERSION=$ver" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Publish
+        run: dotnet publish "7-Zip Password Manager/7-Zip Password Manager.csproj" -c Release -r win-x64 --self-contained true -o publish -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:Version=${{ env.APP_VERSION }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7-Zip-Password-Manager-win-x64
+          path: publish/
+
+  publish-zip:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: 7-Zip-Password-Manager-win-x64
+          path: publish
+
+      - name: Create portable zip
+        run: Compress-Archive -Path publish/* -DestinationPath 7-Zip-Password-Manager-win-x64-portable.zip
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7-Zip-Password-Manager-win-x64-portable
+          path: 7-Zip-Password-Manager-win-x64-portable.zip
+
+  release:
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: 7-Zip-Password-Manager-win-x64
+          path: publish
+
+      - name: Create portable zip
+        run: Compress-Archive -Path publish/* -DestinationPath 7-Zip-Password-Manager-win-x64-portable.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: 7-Zip-Password-Manager-win-x64-portable.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

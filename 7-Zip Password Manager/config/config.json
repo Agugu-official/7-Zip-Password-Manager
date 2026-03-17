@@ -1,0 +1,12 @@
+{
+  "format": "7zpm-config",
+  "version": 1,
+  "isDarkMode": false,
+  "isTopMost": false,
+  "closeAfterContextMenuExtract": true,
+  "sevenZipPath": "",
+  "maxParallelism": 2,
+  "language": "zh-CN",
+  "autoCloseDelayMs": 1000,
+  "logFileMaxSizeBytes": 524288
+}
