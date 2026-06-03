@@ -166,8 +166,8 @@ public class SevenZipProbeRealIntegrationTests : IDisposable
 {
     private readonly string _tempDir;
     private readonly string? _sevenZip;
-    // 含空格、反斜杠、引号的复杂密码，端到端验证 ArgumentList 转义。
-    private const string Pwd = "Sp ace\\and\"quote";
+    // 含空格、反斜杠的复杂密码，端到端验证 ArgumentList 转义。注意：7-Zip 命令行无法可靠接收密码中的双引号（标准 7-Zip 会判为命令行错误、退出码 7），故此处不含。
+    private const string Pwd = "Sp ace\\and-quote";
     private const string WrongPwd = "definitely-wrong-123";
 
     public SevenZipProbeRealIntegrationTests()
