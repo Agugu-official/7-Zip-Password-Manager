@@ -30,7 +30,6 @@ public partial class SettingsWindow : Window
     private bool _originalAutoClose;
     private int _originalMaxParallelism;
     private string _originalLanguage = AppConstants.DefaultLanguage;
-    private double _originalUiScale = AppConstants.DefaultUiScale;
 
     public string NewPath { get; private set; } = string.Empty;
     public string NewSevenZipPath { get; private set; } = string.Empty;
@@ -41,25 +40,27 @@ public partial class SettingsWindow : Window
     public int NewMaxParallelism { get; private set; }
     public bool LanguageChanged { get; private set; }
     public string NewLanguage { get; private set; } = AppConstants.DefaultLanguage;
-    public bool UiScaleChanged { get; private set; }
-    public double NewUiScale { get; private set; } = AppConstants.DefaultUiScale;
 
     public SettingsWindow()
     {
         InitializeComponent();
         AboutVersionText.Text = GuiText.Format("settingsWindow.aboutVersion", AppVersion.GetDisplayVersion());
+
+        BuildUiScaleButtons();
+        ApplyUiScale();
+        UiScale.Changed += OnUiScaleChanged;
+        Closed += (_, _) => UiScale.Changed -= OnUiScaleChanged;
     }
 
     public record SettingsResult(bool PasswordPathChanged, string NewPasswordPath,
                                   bool SevenZipPathChanged, string NewSevenZipPath,
                                   bool AutoCloseChanged, bool NewAutoCloseValue,
                                   bool MaxParallelismChanged, int NewMaxParallelism,
-                                  bool LanguageChanged, string NewLanguage,
-                                  bool UiScaleChanged, double NewUiScale);
+                                  bool LanguageChanged, string NewLanguage);
 
     public static SettingsResult ShowSettings(string currentPath, string currentSevenZipPath,
                                               bool closeAfterExtract, int maxParallelism,
-                                              string currentLanguage, double currentUiScale, Window owner)
+                                              string currentLanguage, Window owner)
     {
         var cpuCores = Data.AppConfig.CpuCoreCount;
 
@@ -71,13 +72,11 @@ public partial class SettingsWindow : Window
             _originalAutoClose = closeAfterExtract,
             _originalMaxParallelism = maxParallelism,
             _originalLanguage = currentLanguage,
-            _originalUiScale = currentUiScale,
             NewPath = currentPath,
             NewSevenZipPath = currentSevenZipPath,
             NewAutoCloseValue = closeAfterExtract,
             NewMaxParallelism = maxParallelism,
             NewLanguage = currentLanguage,
-            NewUiScale = currentUiScale,
         };
         win.PathBox.Text = currentPath;
         win.SevenZipPathBox.Text = currentSevenZipPath;
@@ -95,13 +94,6 @@ public partial class SettingsWindow : Window
 
         win.InitLanguageState(currentLanguage);
 
-        win.UiScaleSlider.Minimum = AppConstants.MinUiScale;
-        win.UiScaleSlider.Maximum = AppConstants.MaxUiScale;
-        win.UiScaleSlider.TickFrequency = AppConstants.UiScaleStep;
-        win.UiScaleSlider.SmallChange = AppConstants.UiScaleStep;
-        win.UiScaleSlider.Value = Math.Clamp(currentUiScale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
-        win.UpdateUiScaleValueText();
-
         var result = win.ShowDialog() == true;
         return new SettingsResult(
             result,
@@ -113,9 +105,7 @@ public partial class SettingsWindow : Window
             win.MaxParallelismChanged,
             win.NewMaxParallelism,
             win.LanguageChanged,
-            win.NewLanguage,
-            win.UiScaleChanged,
-            win.NewUiScale);
+            win.NewLanguage);
     }
 
     // ── "浏览" 按钮：选择已有的 .json 文件 ──
@@ -341,21 +331,62 @@ public partial class SettingsWindow : Window
         ParallelValueText.Text = GuiText.Format("settingsWindow.parallelValueFormat", (int)ParallelSlider.Value);
     }
 
-    // ── 界面缩放 ──
+    // ── 界面缩放（档位按钮：点选即时全局生效并持久化） ──
 
-    private void UiScaleSlider_ValueChanged(object sender,
-        System.Windows.RoutedPropertyChangedEventArgs<double> e)
+    private void BuildUiScaleButtons()
     {
-        UpdateUiScaleValueText();
-        NewUiScale = UiScaleSlider.Value;
-        UiScaleChanged = Math.Abs(NewUiScale - _originalUiScale) > 0.001;
+        UiScalePanel.Children.Clear();
+        foreach (var preset in AppConstants.UiScalePresets)
+        {
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = (int)Math.Round(preset * 100) + "%",
+                Padding = new Thickness(14, 4, 14, 4),
+                Margin = new Thickness(0, 0, 8, 0),
+                Tag = preset,
+            };
+            btn.Click += UiScalePreset_Click;
+            UiScalePanel.Children.Add(btn);
+        }
+        HighlightActiveUiScale();
     }
 
-    private void UpdateUiScaleValueText()
+    private void UiScalePreset_Click(object sender, RoutedEventArgs e)
     {
-        if (UiScaleValueText is null) return;
-        UiScaleValueText.Text = GuiText.Format("settingsWindow.uiScaleValueFormat",
-            (int)Math.Round(UiScaleSlider.Value * 100));
+        if (sender is System.Windows.Controls.Button b && b.Tag is double preset)
+            UiScale.Set(preset); // 全局生效：主窗口与本设置窗口同时实时缩放 + 持久化
+    }
+
+    private void HighlightActiveUiScale()
+    {
+        var activeBg = FindResource("ButtonHover") as System.Windows.Media.Brush;
+        var normalBg = FindResource("ButtonBg") as System.Windows.Media.Brush;
+        var activeBorder = FindResource("WindowFg") as System.Windows.Media.Brush;
+        var normalBorder = FindResource("ControlBorder") as System.Windows.Media.Brush;
+        foreach (var child in UiScalePanel.Children)
+        {
+            if (child is System.Windows.Controls.Button b && b.Tag is double preset)
+            {
+                var active = Math.Abs(preset - UiScale.Current) < 0.001;
+                b.Background = active ? activeBg : normalBg;
+                b.BorderBrush = active ? activeBorder : normalBorder;
+            }
+        }
+    }
+
+    private void OnUiScaleChanged()
+    {
+        ApplyUiScale();
+        HighlightActiveUiScale();
+    }
+
+    // 设置窗口宽度固定，故按比例缩放窗口宽高约束（先 Max 后 Min 再设值，兼顾放大/缩小）。
+    private void ApplyUiScale()
+    {
+        UiScale.ApplyTransform(SettingsRoot, this, 32.0);
+        var s = UiScale.Current;
+        MaxWidth = 520 * s; MinWidth = 520 * s; Width = 520 * s;
+        MaxHeight = 900 * s; MinHeight = 400 * s; Height = 580 * s;
     }
 
     // ── 语言切换 ──

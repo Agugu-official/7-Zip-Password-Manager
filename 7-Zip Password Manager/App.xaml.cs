@@ -55,6 +55,8 @@ public partial class App : Application
         ConfigFileExistedAtStartup = File.Exists(AppDataPaths.ConfigFile);
 
         var config = AppConfig.Load();
+        // 界面缩放：设定初始档位并注入持久化回调（与注入 VM 的是同一 config 实例）。
+        UiScale.Initialize(config.GetEffectiveUiScale(), s => { config.UiScale = s; config.Save(); });
         GuiText.Load(AppDataPaths.GetGuiTextFile(config.Language));
         ContextMenuService.RefreshIfRegistered();
 

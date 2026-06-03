@@ -5,7 +5,6 @@ using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
-using _7_Zip_Password_Manager.Constants;
 using _7_Zip_Password_Manager.Data;
 using _7_Zip_Password_Manager.Helpers;
 using _7_Zip_Password_Manager.Models;
@@ -256,9 +255,6 @@ public class MainWindowViewModel : ViewModelBase
     public int MaxParallelism => _config.MaxParallelism;
     public string Language => _config.Language;
 
-    /// <summary>当前界面缩放比例（已夹紧到合法范围）。View 在启动与设置变更后据此应用 LayoutTransform。</summary>
-    public double UiScale => _config.GetEffectiveUiScale();
-
     /// <summary>当前是否已配置或自动检测到可用的 7z.exe。</summary>
     public bool Is7ZipAvailable => _sevenZipService.IsAvailable;
 
@@ -293,14 +289,6 @@ public class MainWindowViewModel : ViewModelBase
         _config.MaxParallelism = Math.Clamp(value, 1, Environment.ProcessorCount);
         _config.Save();
         AppendLog(G.Format("viewModel.logParallelismSet", _config.MaxParallelism));
-    }
-
-    /// <summary>更改界面缩放比例并持久化（夹紧到合法范围）。实际视觉应用由 View 负责（属 UI 职责）。</summary>
-    public void ChangeUiScale(double value)
-    {
-        _config.UiScale = Math.Clamp(value, AppConstants.MinUiScale, AppConstants.MaxUiScale);
-        _config.Save();
-        OnPropertyChanged(nameof(UiScale));
     }
 
     public void ChangeLanguage(string newLanguage)

@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using _7_Zip_Password_Manager.Constants;
 using _7_Zip_Password_Manager.Data;
+using _7_Zip_Password_Manager.Helpers;
 using _7_Zip_Password_Manager.Models;
 using _7_Zip_Password_Manager.ViewModels;
 using _7_Zip_Password_Manager.Views;
@@ -48,30 +49,25 @@ public partial class MainWindow : Window
 
         App.ArchivePathReceived += OnArchivePathReceived;
         EnforceColumnMinWidths();
-        ApplyUiScale(viewModel.UiScale);
+        UiScale.Changed += OnUiScaleChanged;
+        ApplyUiScale();
     }
 
     // ── 界面缩放（UI 大小）──
-    // VM 持有缩放值（持久化于 config），View 负责把它转成 LayoutTransform 等可视效果。
-    // 整体缩放根 Grid（含标题栏），并联动标题栏拖拽高度与窗口最小尺寸。
+    // 缩放是全局状态（UiScale）。主窗口在构造时应用一次，并订阅 Changed 实时跟随
+    // 设置窗口/向导对档位的改动。整体缩放根 Grid（含标题栏）。
 
-    private void ApplyUiScale(double scale)
+    private void OnUiScaleChanged() => ApplyUiScale();
+
+    private void ApplyUiScale()
     {
-        scale = Math.Clamp(scale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
-
-        RootScaleHost.LayoutTransform = scale == 1.0
-            ? Transform.Identity
-            : new ScaleTransform(scale, scale);
-
-        // 标题栏可拖拽区高度随缩放联动，避免可视标题栏与可拖拽区错位
-        var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(this);
-        if (chrome is not null)
-            chrome.CaptionHeight = AppConstants.BaseCaptionHeight * scale;
+        UiScale.ApplyTransform(RootScaleHost, this, AppConstants.BaseCaptionHeight);
 
         // 最小窗口尺寸随缩放联动（上限为屏幕工作区），保证放大后内容仍可完整布局
+        var s = UiScale.Current;
         var work = SystemParameters.WorkArea;
-        MinWidth = Math.Min(AppConstants.BaseMinWindowWidth * scale, work.Width);
-        MinHeight = Math.Min(AppConstants.BaseMinWindowHeight * scale, work.Height);
+        MinWidth = Math.Min(AppConstants.BaseMinWindowWidth * s, work.Width);
+        MinHeight = Math.Min(AppConstants.BaseMinWindowHeight * s, work.Height);
     }
 
     private void EnforceColumnMinWidths()
@@ -289,7 +285,7 @@ public partial class MainWindow : Window
 
         var result = SettingsWindow.ShowSettings(
             vm.PasswordFilePath, vm.SevenZipPath, vm.CloseAfterExtract,
-            vm.MaxParallelism, vm.Language, vm.UiScale, this);
+            vm.MaxParallelism, vm.Language, this);
 
         if (result.PasswordPathChanged)
             vm.ChangePasswordFilePath(result.NewPasswordPath);
@@ -305,12 +301,6 @@ public partial class MainWindow : Window
 
         if (result.LanguageChanged)
             vm.ChangeLanguage(result.NewLanguage);
-
-        if (result.UiScaleChanged)
-        {
-            vm.ChangeUiScale(result.NewUiScale);
-            ApplyUiScale(vm.UiScale);
-        }
     }
 
     // ── 列头点击排序 ──
@@ -648,6 +638,7 @@ public partial class MainWindow : Window
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         App.ArchivePathReceived -= OnArchivePathReceived;
+        UiScale.Changed -= OnUiScaleChanged;
         CommitRename();
         if (DataContext is MainWindowViewModel vm)
         {
