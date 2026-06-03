@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using _7_Zip_Password_Manager.Constants;
@@ -134,9 +135,10 @@ public static class ContextMenuService
             if (IsRegistered())
                 Register();
         }
-        catch
+        catch (Exception ex)
         {
-            // 非关键路径，静默忽略
+            // 非关键路径，不影响启动；记录以便诊断（OBS-4）
+            Trace.TraceWarning($"刷新右键菜单注册失败: {ex.Message}");
         }
     }
 

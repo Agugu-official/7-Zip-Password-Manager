@@ -57,6 +57,9 @@ public class AppConfig
     public string SevenZipPath { get; set; } = string.Empty;
     public int MaxParallelism { get; set; } = 2;
     public string Language { get; set; } = AppConstants.DefaultLanguage;
+
+    /// <summary>界面缩放比例（UI 大小）。1.0 = 100%。合法范围见 AppConstants，读取时用 GetEffectiveUiScale 夹紧。</summary>
+    public double UiScale { get; set; } = AppConstants.DefaultUiScale;
     public int AutoCloseDelayMs { get; set; } = 1000;
     public long LogFileMaxSizeBytes { get; set; } = 512 * 1024;
     public ColumnWidthsConfig? ColumnWidths { get; set; }
@@ -131,7 +134,11 @@ public class AppConfig
                     return full;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // 注册表读取失败（权限/IO）：跳过此来源，继续尝试其它检测方式（OBS-4）
+            Trace.TraceWarning($"从注册表检测 7-Zip 失败 ({keyPath}): {ex.Message}");
+        }
         return string.Empty;
     }
 
@@ -144,7 +151,11 @@ public class AppConfig
             var user = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
             pathEnv = $"{machine ?? ""};{user ?? ""}";
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // 读取 PATH 环境变量失败：降级为空并跳过 PATH 检测（OBS-4）
+            Trace.TraceWarning($"读取 PATH 环境变量失败: {ex.Message}");
+        }
 
         if (string.IsNullOrWhiteSpace(pathEnv))
             return string.Empty;
@@ -170,6 +181,10 @@ public class AppConfig
 
         return Detect7ZipPath();
     }
+
+    /// <summary>返回夹紧到合法范围 [MinUiScale, MaxUiScale] 的界面缩放值，容错旧版/损坏配置。</summary>
+    public double GetEffectiveUiScale()
+        => Math.Clamp(UiScale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
 
     /// <summary>
     /// 从 JSON 字符串反序列化配置。不涉及文件 I/O，适合单元测试。

@@ -17,6 +17,17 @@ public static class AppConstants
 
     public const double ColumnMinWidth = 28.0;
 
+    // ── 界面缩放（UI 大小）──
+    // 缩放范围、默认值与步进；以及随缩放联动的基准尺寸（须与 MainWindow.xaml 保持一致）。
+
+    public const double MinUiScale = 0.8;
+    public const double MaxUiScale = 2.0;
+    public const double DefaultUiScale = 1.0;
+    public const double UiScaleStep = 0.1;
+    public const double BaseCaptionHeight = 36.0;
+    public const double BaseMinWindowWidth = 640.0;
+    public const double BaseMinWindowHeight = 480.0;
+
     // ── 文件与文件夹名称 ──
 
     public const string PasswordFolderName = "pws";

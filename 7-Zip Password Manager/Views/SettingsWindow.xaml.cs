@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
     private bool _originalAutoClose;
     private int _originalMaxParallelism;
     private string _originalLanguage = AppConstants.DefaultLanguage;
+    private double _originalUiScale = AppConstants.DefaultUiScale;
 
     public string NewPath { get; private set; } = string.Empty;
     public string NewSevenZipPath { get; private set; } = string.Empty;
@@ -40,6 +41,8 @@ public partial class SettingsWindow : Window
     public int NewMaxParallelism { get; private set; }
     public bool LanguageChanged { get; private set; }
     public string NewLanguage { get; private set; } = AppConstants.DefaultLanguage;
+    public bool UiScaleChanged { get; private set; }
+    public double NewUiScale { get; private set; } = AppConstants.DefaultUiScale;
 
     public SettingsWindow()
     {
@@ -51,11 +54,12 @@ public partial class SettingsWindow : Window
                                   bool SevenZipPathChanged, string NewSevenZipPath,
                                   bool AutoCloseChanged, bool NewAutoCloseValue,
                                   bool MaxParallelismChanged, int NewMaxParallelism,
-                                  bool LanguageChanged, string NewLanguage);
+                                  bool LanguageChanged, string NewLanguage,
+                                  bool UiScaleChanged, double NewUiScale);
 
     public static SettingsResult ShowSettings(string currentPath, string currentSevenZipPath,
                                               bool closeAfterExtract, int maxParallelism,
-                                              string currentLanguage, Window owner)
+                                              string currentLanguage, double currentUiScale, Window owner)
     {
         var cpuCores = Data.AppConfig.CpuCoreCount;
 
@@ -67,11 +71,13 @@ public partial class SettingsWindow : Window
             _originalAutoClose = closeAfterExtract,
             _originalMaxParallelism = maxParallelism,
             _originalLanguage = currentLanguage,
+            _originalUiScale = currentUiScale,
             NewPath = currentPath,
             NewSevenZipPath = currentSevenZipPath,
             NewAutoCloseValue = closeAfterExtract,
             NewMaxParallelism = maxParallelism,
             NewLanguage = currentLanguage,
+            NewUiScale = currentUiScale,
         };
         win.PathBox.Text = currentPath;
         win.SevenZipPathBox.Text = currentSevenZipPath;
@@ -89,6 +95,13 @@ public partial class SettingsWindow : Window
 
         win.InitLanguageState(currentLanguage);
 
+        win.UiScaleSlider.Minimum = AppConstants.MinUiScale;
+        win.UiScaleSlider.Maximum = AppConstants.MaxUiScale;
+        win.UiScaleSlider.TickFrequency = AppConstants.UiScaleStep;
+        win.UiScaleSlider.SmallChange = AppConstants.UiScaleStep;
+        win.UiScaleSlider.Value = Math.Clamp(currentUiScale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
+        win.UpdateUiScaleValueText();
+
         var result = win.ShowDialog() == true;
         return new SettingsResult(
             result,
@@ -100,7 +113,9 @@ public partial class SettingsWindow : Window
             win.MaxParallelismChanged,
             win.NewMaxParallelism,
             win.LanguageChanged,
-            win.NewLanguage);
+            win.NewLanguage,
+            win.UiScaleChanged,
+            win.NewUiScale);
     }
 
     // ── "浏览" 按钮：选择已有的 .json 文件 ──
@@ -324,6 +339,23 @@ public partial class SettingsWindow : Window
     {
         if (ParallelValueText is null) return;
         ParallelValueText.Text = GuiText.Format("settingsWindow.parallelValueFormat", (int)ParallelSlider.Value);
+    }
+
+    // ── 界面缩放 ──
+
+    private void UiScaleSlider_ValueChanged(object sender,
+        System.Windows.RoutedPropertyChangedEventArgs<double> e)
+    {
+        UpdateUiScaleValueText();
+        NewUiScale = UiScaleSlider.Value;
+        UiScaleChanged = Math.Abs(NewUiScale - _originalUiScale) > 0.001;
+    }
+
+    private void UpdateUiScaleValueText()
+    {
+        if (UiScaleValueText is null) return;
+        UiScaleValueText.Text = GuiText.Format("settingsWindow.uiScaleValueFormat",
+            (int)Math.Round(UiScaleSlider.Value * 100));
     }
 
     // ── 语言切换 ──

@@ -38,7 +38,8 @@ public class PasswordRankingService : IRankingService
         if (e.WasLastSuccessful && e.LastUsedTime > DateTime.MinValue)
         {
             var daysSince = (DateTime.Now - e.LastUsedTime).TotalDays;
-            score += _cfg.RecentSuccessMaxScore * Math.Max(0, 1.0 - daysSince / _cfg.DecayDays);
+            // Clamp 同时夹下限与上限：daysSince<0（时钟回拨/未来时间）时不再超过满分（OBS-3）
+            score += _cfg.RecentSuccessMaxScore * Math.Clamp(1.0 - daysSince / _cfg.DecayDays, 0, 1);
         }
 
         if (e.UseCount > 0)

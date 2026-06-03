@@ -28,27 +28,50 @@ public partial class MainWindow : Window
     private const double ColumnMinWidth = AppConstants.ColumnMinWidth;
     private bool _isClampingColumnWidth;
 
-    public MainWindow()
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
+        DataContext = viewModel;
         Closing += MainWindow_Closing;
         Loaded += MainWindow_Loaded;
         PreviewKeyDown += Window_PreviewKeyDown;
         UpdateMaximizeIcon();
 
-        if (DataContext is MainWindowViewModel vm)
-        {
-            vm.RequestStartRename += OnRequestStartRename;
-            vm.RequestAutoClose += OnRequestAutoClose;
-            vm.RequestRestart += OnRequestRestart;
-            vm.LogEntries.CollectionChanged += LogEntries_CollectionChanged;
+        // DataContext 由构造注入，必为 MainWindowViewModel
+        viewModel.RequestStartRename += OnRequestStartRename;
+        viewModel.RequestAutoClose += OnRequestAutoClose;
+        viewModel.RequestRestart += OnRequestRestart;
+        viewModel.LogEntries.CollectionChanged += LogEntries_CollectionChanged;
 
-            foreach (var entry in vm.LogEntries)
-                AppendLogToDocument(entry);
-        }
+        foreach (var entry in viewModel.LogEntries)
+            AppendLogToDocument(entry);
 
         App.ArchivePathReceived += OnArchivePathReceived;
         EnforceColumnMinWidths();
+        ApplyUiScale(viewModel.UiScale);
+    }
+
+    // ── 界面缩放（UI 大小）──
+    // VM 持有缩放值（持久化于 config），View 负责把它转成 LayoutTransform 等可视效果。
+    // 整体缩放根 Grid（含标题栏），并联动标题栏拖拽高度与窗口最小尺寸。
+
+    private void ApplyUiScale(double scale)
+    {
+        scale = Math.Clamp(scale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
+
+        RootScaleHost.LayoutTransform = scale == 1.0
+            ? Transform.Identity
+            : new ScaleTransform(scale, scale);
+
+        // 标题栏可拖拽区高度随缩放联动，避免可视标题栏与可拖拽区错位
+        var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(this);
+        if (chrome is not null)
+            chrome.CaptionHeight = AppConstants.BaseCaptionHeight * scale;
+
+        // 最小窗口尺寸随缩放联动（上限为屏幕工作区），保证放大后内容仍可完整布局
+        var work = SystemParameters.WorkArea;
+        MinWidth = Math.Min(AppConstants.BaseMinWindowWidth * scale, work.Width);
+        MinHeight = Math.Min(AppConstants.BaseMinWindowHeight * scale, work.Height);
     }
 
     private void EnforceColumnMinWidths()
@@ -99,7 +122,11 @@ public partial class MainWindow : Window
                             AppDataPaths.EnsureDirectoryExists();
                             File.WriteAllText(AppDataPaths.FirstRunWizardDoneFile, "");
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            // 写入向导完成标记失败：仅记录，下次启动会重新弹向导（OBS-4）
+                            Trace.TraceError($"写入首启向导标记失败: {ex.Message}");
+                        }
                         if (enableContextMenu)
                             _7_Zip_Password_Manager.Services.ContextMenuService.Register();
                         else
@@ -262,7 +289,7 @@ public partial class MainWindow : Window
 
         var result = SettingsWindow.ShowSettings(
             vm.PasswordFilePath, vm.SevenZipPath, vm.CloseAfterExtract,
-            vm.MaxParallelism, vm.Language, this);
+            vm.MaxParallelism, vm.Language, vm.UiScale, this);
 
         if (result.PasswordPathChanged)
             vm.ChangePasswordFilePath(result.NewPasswordPath);
@@ -278,6 +305,12 @@ public partial class MainWindow : Window
 
         if (result.LanguageChanged)
             vm.ChangeLanguage(result.NewLanguage);
+
+        if (result.UiScaleChanged)
+        {
+            vm.ChangeUiScale(result.NewUiScale);
+            ApplyUiScale(vm.UiScale);
+        }
     }
 
     // ── 列头点击排序 ──

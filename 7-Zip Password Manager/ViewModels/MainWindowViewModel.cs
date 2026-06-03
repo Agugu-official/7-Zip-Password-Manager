@@ -45,17 +45,26 @@ public class MainWindowViewModel : ViewModelBase
     private string? _sortProperty;
     private ListSortDirection _sortDirection;
 
-    public MainWindowViewModel()
+    /// <summary>
+    /// 构造函数注入：服务与配置由组合根（App.CreateMainWindowViewModel）装配并传入。
+    /// 不在此处 new 具体服务，使 ViewModel 可在测试中注入 stub/mock。
+    /// </summary>
+    public MainWindowViewModel(
+        ISevenZipService sevenZipService,
+        IPasswordRepository passwordRepository,
+        IRankingService rankingService,
+        ILogService logService,
+        IThemeService themeService,
+        ILastExtractResultService lastExtractService,
+        AppConfig config)
     {
-        _config = AppConfig.Load();
-        _sevenZipService = new SevenZipService(_config.GetEffective7ZipPath());
-        _passwordRepository = new PasswordRepository(_config.PasswordFilePath);
-        _rankingService = new PasswordRankingService(_config.Ranking);
-        _logService = new LogFileService(
-            Path.Combine(AppDataPaths.ConfigFolder, AppConstants.LogFileName),
-            _config.LogFileMaxSizeBytes);
-        _themeService = new ThemeService();
-        _lastExtractService = new LastExtractResultService();
+        _sevenZipService = sevenZipService;
+        _passwordRepository = passwordRepository;
+        _rankingService = rankingService;
+        _logService = logService;
+        _themeService = themeService;
+        _lastExtractService = lastExtractService;
+        _config = config;
 
         _isDarkMode = _config.IsDarkMode;
         _isTopMost = _config.IsTopMost;
@@ -247,6 +256,9 @@ public class MainWindowViewModel : ViewModelBase
     public int MaxParallelism => _config.MaxParallelism;
     public string Language => _config.Language;
 
+    /// <summary>当前界面缩放比例（已夹紧到合法范围）。View 在启动与设置变更后据此应用 LayoutTransform。</summary>
+    public double UiScale => _config.GetEffectiveUiScale();
+
     /// <summary>当前是否已配置或自动检测到可用的 7z.exe。</summary>
     public bool Is7ZipAvailable => _sevenZipService.IsAvailable;
 
@@ -281,6 +293,14 @@ public class MainWindowViewModel : ViewModelBase
         _config.MaxParallelism = Math.Clamp(value, 1, Environment.ProcessorCount);
         _config.Save();
         AppendLog(G.Format("viewModel.logParallelismSet", _config.MaxParallelism));
+    }
+
+    /// <summary>更改界面缩放比例并持久化（夹紧到合法范围）。实际视觉应用由 View 负责（属 UI 职责）。</summary>
+    public void ChangeUiScale(double value)
+    {
+        _config.UiScale = Math.Clamp(value, AppConstants.MinUiScale, AppConstants.MaxUiScale);
+        _config.Save();
+        OnPropertyChanged(nameof(UiScale));
     }
 
     public void ChangeLanguage(string newLanguage)
@@ -891,7 +911,8 @@ public class MainWindowViewModel : ViewModelBase
         using var foundCts = new CancellationTokenSource();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(userToken, foundCts.Token);
         var linkedToken = linked.Token;
-        var semaphore = new SemaphoreSlim(parallelism, parallelism);
+        // using：所有工作任务在 Task.WhenAll 后均已终止（finally 中已 Release），此时释放安全（BUG-2）
+        using var semaphore = new SemaphoreSlim(parallelism, parallelism);
         int completed = 0;
         PasswordEntry? correctEntry = null;
         var lockObj = new object();
