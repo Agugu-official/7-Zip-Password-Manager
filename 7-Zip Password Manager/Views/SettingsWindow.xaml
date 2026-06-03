@@ -32,7 +32,7 @@
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
-    <Border BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+    <Border x:Name="SettingsRoot" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
             CornerRadius="8">
         <Grid>
             <Grid.Resources>
@@ -333,20 +333,10 @@
 
                 <GroupBox Header="{loc:T Key=settingsWindow.sectionDisplay}" Padding="8" Margin="0,12,0,0">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,4">
-                            <TextBlock Text="{loc:T Key=settingsWindow.labelUiScale}" VerticalAlignment="Center" />
-                        </DockPanel>
-                        <DockPanel>
-                            <TextBlock x:Name="UiScaleValueText" DockPanel.Dock="Right"
-                                       Width="52" TextAlignment="Center"
-                                       VerticalAlignment="Center" FontWeight="SemiBold" />
-                            <Slider x:Name="UiScaleSlider"
-                                    IsSnapToTickEnabled="True"
-                                    TickPlacement="BottomRight"
-                                    ValueChanged="UiScaleSlider_ValueChanged"
-                                    VerticalAlignment="Center" Margin="0,0,8,0" />
-                        </DockPanel>
-                        <TextBlock Margin="0,4,0,0" FontSize="12" Opacity="0.5" TextWrapping="Wrap"
+                        <TextBlock Text="{loc:T Key=settingsWindow.labelUiScale}" Margin="0,0,0,6" />
+                        <!-- 档位按钮在 code-behind 按 AppConstants.UiScalePresets 生成 -->
+                        <StackPanel x:Name="UiScalePanel" Orientation="Horizontal" />
+                        <TextBlock Margin="0,6,0,0" FontSize="12" Opacity="0.5" TextWrapping="Wrap"
                                    Text="{loc:T Key=settingsWindow.labelUiScaleHint}" />
                     </StackPanel>
                 </GroupBox>

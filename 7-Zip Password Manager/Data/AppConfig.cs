@@ -182,9 +182,18 @@ public class AppConfig
         return Detect7ZipPath();
     }
 
-    /// <summary>返回夹紧到合法范围 [MinUiScale, MaxUiScale] 的界面缩放值，容错旧版/损坏配置。</summary>
+    /// <summary>返回吸附到最近合法档位的界面缩放值，容错旧版/损坏/越界配置。</summary>
     public double GetEffectiveUiScale()
-        => Math.Clamp(UiScale, AppConstants.MinUiScale, AppConstants.MaxUiScale);
+    {
+        var best = AppConstants.UiScalePresets[0];
+        var bestDist = double.MaxValue;
+        foreach (var p in AppConstants.UiScalePresets)
+        {
+            var d = Math.Abs(p - UiScale);
+            if (d < bestDist) { bestDist = d; best = p; }
+        }
+        return best;
+    }
 
     /// <summary>
     /// 从 JSON 字符串反序列化配置。不涉及文件 I/O，适合单元测试。

@@ -23,7 +23,7 @@
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
-    <Border BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+    <Border x:Name="WizardRoot" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
             CornerRadius="8">
         <Grid>
             <Grid.Resources>
@@ -136,6 +136,14 @@
                     <TextBlock x:Name="SevenZipMessageBlock" TextWrapping="Wrap" FontSize="12"
                                Foreground="{DynamicResource WindowFg}" />
                 </Border>
+
+                <!-- 界面大小（档位按钮在 code-behind 生成）：照顾低分辨率设备 -->
+                <GroupBox Header="{loc:T Key=settingsWindow.sectionDisplay}" Padding="8" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="{loc:T Key=settingsWindow.labelUiScale}" Margin="0,0,0,6" />
+                        <StackPanel x:Name="UiScalePanel" Orientation="Horizontal" />
+                    </StackPanel>
+                </GroupBox>
 
                 <!-- 系统集成（与设置窗口相同的 GroupBox 样式） -->
                 <GroupBox Header="{loc:T Key=settingsWindow.sectionIntegration}" Padding="8" Margin="0,0,0,10">

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Navigation;
+using _7_Zip_Password_Manager.Constants;
 using _7_Zip_Password_Manager.Helpers;
 
 namespace _7_Zip_Password_Manager.Views;
@@ -35,6 +36,69 @@ public partial class FirstRunWizardWindow : Window
             link.RequestNavigate += Hyperlink_RequestNavigate;
             SevenZipMessageBlock.Inlines.Add(link);
         }
+
+        BuildUiScaleButtons();
+        ApplyUiScale();
+        UiScale.Changed += OnUiScaleChanged;
+        Closed += (_, _) => UiScale.Changed -= OnUiScaleChanged;
+    }
+
+    // ── 界面缩放（档位按钮：点选即时全局生效并持久化）──
+    // 首次启动即可调整，照顾低分辨率设备。
+
+    private void BuildUiScaleButtons()
+    {
+        UiScalePanel.Children.Clear();
+        foreach (var preset in AppConstants.UiScalePresets)
+        {
+            var btn = new System.Windows.Controls.Button
+            {
+                Content = (int)Math.Round(preset * 100) + "%",
+                Padding = new Thickness(12, 4, 12, 4),
+                Margin = new Thickness(0, 0, 6, 0),
+                Tag = preset,
+            };
+            btn.Click += UiScalePreset_Click;
+            UiScalePanel.Children.Add(btn);
+        }
+        HighlightActiveUiScale();
+    }
+
+    private void UiScalePreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button b && b.Tag is double preset)
+            UiScale.Set(preset);
+    }
+
+    private void HighlightActiveUiScale()
+    {
+        var activeBg = FindResource("ButtonHover") as System.Windows.Media.Brush;
+        var normalBg = FindResource("ButtonBg") as System.Windows.Media.Brush;
+        var activeBorder = FindResource("WindowFg") as System.Windows.Media.Brush;
+        var normalBorder = FindResource("ControlBorder") as System.Windows.Media.Brush;
+        foreach (var child in UiScalePanel.Children)
+        {
+            if (child is System.Windows.Controls.Button b && b.Tag is double preset)
+            {
+                var active = Math.Abs(preset - UiScale.Current) < 0.001;
+                b.Background = active ? activeBg : normalBg;
+                b.BorderBrush = active ? activeBorder : normalBorder;
+            }
+        }
+    }
+
+    private void OnUiScaleChanged()
+    {
+        ApplyUiScale();
+        HighlightActiveUiScale();
+    }
+
+    private void ApplyUiScale()
+    {
+        UiScale.ApplyTransform(WizardRoot, this, 32.0);
+        var s = UiScale.Current;
+        MaxWidth = 460 * s; MinWidth = 360 * s; Width = 400 * s;
+        MaxHeight = 480 * s; MinHeight = 260 * s; // 高度由 SizeToContent 自适应，仅放宽上下限
     }
 
     private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
