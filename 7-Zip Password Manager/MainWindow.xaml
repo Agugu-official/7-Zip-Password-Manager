@@ -14,6 +14,7 @@
         Icon="/Assets/smart-unzip-48.png"
         Background="{DynamicResource WindowBg}"
         Topmost="{Binding IsTopMost}"
+        d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=False}"
         StateChanged="Window_StateChanged">
 
     <WindowChrome.WindowChrome>
@@ -23,10 +24,6 @@
                       CornerRadius="8"
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
-
-    <Window.DataContext>
-        <vm:MainWindowViewModel />
-    </Window.DataContext>
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -275,7 +272,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Background="Transparent" PreviewMouseLeftButtonDown="RootGrid_PreviewMouseLeftButtonDown">
+    <Grid x:Name="RootScaleHost" Background="Transparent" PreviewMouseLeftButtonDown="RootGrid_PreviewMouseLeftButtonDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="36" />
             <RowDefinition Height="*" />

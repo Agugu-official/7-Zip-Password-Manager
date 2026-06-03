@@ -25,19 +25,8 @@ public class SevenZipService : ISevenZipService
     public async Task<bool> TestPasswordAsync(string archivePath, string password,
         CancellationToken cancellationToken = default)
     {
-        string args;
-        if (string.IsNullOrEmpty(password))
-        {
-            // 无密码测试：不添加 -p
-            args = $"t \"{archivePath}\" -bso0 -bsp0";
-        }
-        else
-        {
-            var escaped = EscapeForQuotedArg(password);
-            args = $"t \"{archivePath}\" -p\"{escaped}\" -bso0 -bsp0";
-        }
-
-        var exitCode = await RunProcessAsync(args, cancellationToken, timeoutMs: 15_000);
+        var exitCode = await RunProcessAsync(
+            BuildTestArgs(archivePath, password), cancellationToken, timeoutMs: 15_000);
         return exitCode == 0;
     }
 
@@ -52,19 +41,46 @@ public class SevenZipService : ISevenZipService
     {
         if (progress is null)
         {
-            string args;
-            if (string.IsNullOrEmpty(password))
-                args = $"x \"{archivePath}\" -o\"{outputDirectory}\" -aoa -bsp0";
-            else
-            {
-                var escaped = EscapeForQuotedArg(password);
-                args = $"x \"{archivePath}\" -p\"{escaped}\" -o\"{outputDirectory}\" -aoa -bsp0";
-            }
-            var exitCode = await RunProcessAsync(args, cancellationToken);
+            var exitCode = await RunProcessAsync(
+                BuildExtractArgs(archivePath, password, outputDirectory, withProgress: false),
+                cancellationToken);
             return exitCode == 0;
         }
 
         return await RunExtractWithProgressAsync(archivePath, password, outputDirectory, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// 构造“测试密码”命令（7z t）的参数列表。
+    /// 各参数作为独立元素经 ProcessStartInfo.ArgumentList 传递，转义由 .NET 运行时负责，
+    /// 可正确处理含空格 / 引号 / 反斜杠（含尾部反斜杠）的密码与路径——
+    /// 从根本上避免手写命令行拼接的转义缺陷（BUG-1 及其同源隐患）。
+    /// password 为空时省略 -p（无密码测试）。
+    /// </summary>
+    internal static List<string> BuildTestArgs(string archivePath, string password)
+    {
+        var args = new List<string> { "t", archivePath };
+        if (!string.IsNullOrEmpty(password))
+            args.Add("-p" + password);
+        args.Add("-bso0");
+        args.Add("-bsp0");
+        return args;
+    }
+
+    /// <summary>
+    /// 构造“解压”命令（7z x）的参数列表。withProgress 决定使用 -bsp1（报告进度）还是 -bsp0。
+    /// 输出目录作为 -o 的一部分整体传入（如 -oD:\out\），即便以反斜杠结尾也由运行时正确转义。
+    /// </summary>
+    internal static List<string> BuildExtractArgs(string archivePath, string password,
+        string outputDirectory, bool withProgress)
+    {
+        var args = new List<string> { "x", archivePath };
+        if (!string.IsNullOrEmpty(password))
+            args.Add("-p" + password);
+        args.Add("-o" + outputDirectory);
+        args.Add("-aoa");
+        args.Add(withProgress ? "-bsp1" : "-bsp0");
+        return args;
     }
 
     /// <summary>
@@ -73,27 +89,21 @@ public class SevenZipService : ISevenZipService
     private async Task<bool> RunExtractWithProgressAsync(string archivePath, string password,
         string outputDirectory, IProgress<double> progress, CancellationToken cancellationToken)
     {
-        string args;
-        if (string.IsNullOrEmpty(password))
-            args = $"x \"{archivePath}\" -o\"{outputDirectory}\" -aoa -bsp1";
-        else
+        var startInfo = new ProcessStartInfo
         {
-            var escaped = EscapeForQuotedArg(password);
-            args = $"x \"{archivePath}\" -p\"{escaped}\" -o\"{outputDirectory}\" -aoa -bsp1";
-        }
+            FileName = _sevenZipPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        };
+        foreach (var arg in BuildExtractArgs(archivePath, password, outputDirectory, withProgress: true))
+            startInfo.ArgumentList.Add(arg);
 
         using var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = _sevenZipPath,
-                Arguments = args,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = true,
-            },
+            StartInfo = startInfo,
             EnableRaisingEvents = true,
         };
 
@@ -133,64 +143,24 @@ public class SevenZipService : ISevenZipService
         return process.ExitCode == 0;
     }
 
-    /// <summary>
-    /// 转义用于 Windows 带引号参数中的特殊字符。
-    /// 规则：先将 \ 后紧跟 " 的序列中的 \ 翻倍，再将 " 转为 \"。
-    /// </summary>
-    private static string EscapeForQuotedArg(string value)
+    private async Task<int> RunProcessAsync(IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken, int? timeoutMs = null)
     {
-        if (!value.Contains('"') && !value.Contains('\\'))
-            return value;
-
-        var sb = new System.Text.StringBuilder(value.Length + 4);
-        for (int i = 0; i < value.Length; i++)
+        var startInfo = new ProcessStartInfo
         {
-            if (value[i] == '\\')
-            {
-                int backslashCount = 0;
-                while (i < value.Length && value[i] == '\\')
-                {
-                    backslashCount++;
-                    i++;
-                }
+            FileName = _sevenZipPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        };
+        foreach (var arg in arguments)
+            startInfo.ArgumentList.Add(arg);
 
-                if (i < value.Length && value[i] == '"')
-                {
-                    sb.Append('\\', backslashCount * 2);
-                    sb.Append("\\\"");
-                }
-                else
-                {
-                    sb.Append('\\', backslashCount);
-                    i--;
-                }
-            }
-            else if (value[i] == '"')
-            {
-                sb.Append("\\\"");
-            }
-            else
-            {
-                sb.Append(value[i]);
-            }
-        }
-        return sb.ToString();
-    }
-
-    private async Task<int> RunProcessAsync(string arguments, CancellationToken cancellationToken, int? timeoutMs = null)
-    {
         using var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = _sevenZipPath,
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = true,
-            },
+            StartInfo = startInfo,
             EnableRaisingEvents = true,
         };
 

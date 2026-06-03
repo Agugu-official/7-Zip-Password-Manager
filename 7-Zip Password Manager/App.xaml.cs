@@ -5,6 +5,7 @@ using _7_Zip_Password_Manager.Constants;
 using _7_Zip_Password_Manager.Data;
 using _7_Zip_Password_Manager.Helpers;
 using _7_Zip_Password_Manager.Services;
+using _7_Zip_Password_Manager.ViewModels;
 
 namespace _7_Zip_Password_Manager;
 
@@ -62,9 +63,30 @@ public partial class App : Application
 
         StartPipeServer();
 
-        var mainWindow = new MainWindow();
+        var viewModel = CreateMainWindowViewModel(config);
+        var mainWindow = new MainWindow(viewModel);
         MainWindow = mainWindow;
         mainWindow.Show();
+    }
+
+    /// <summary>
+    /// 组合根：在应用入口处手动装配服务依赖并构造主 ViewModel（手动 DI，无容器）。
+    /// 这是整个对象图的唯一组装点；服务均以接口形式注入，便于替换与单元测试。
+    /// </summary>
+    private static MainWindowViewModel CreateMainWindowViewModel(AppConfig config)
+    {
+        var sevenZipService = new SevenZipService(config.GetEffective7ZipPath());
+        var passwordRepository = new PasswordRepository(config.PasswordFilePath);
+        var rankingService = new PasswordRankingService(config.Ranking);
+        var logService = new LogFileService(
+            Path.Combine(AppDataPaths.ConfigFolder, AppConstants.LogFileName),
+            config.LogFileMaxSizeBytes);
+        var themeService = new ThemeService();
+        var lastExtractService = new LastExtractResultService();
+
+        return new MainWindowViewModel(
+            sevenZipService, passwordRepository, rankingService,
+            logService, themeService, lastExtractService, config);
     }
 
     private void StartPipeServer()

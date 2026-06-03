@@ -47,7 +47,11 @@ public partial class FirstRunWizardWindow : Window
                 UseShellExecute = true
             });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // 打开浏览器失败不应影响向导（OBS-4）
+            Trace.TraceWarning($"打开链接失败: {ex.Message}");
+        }
         e.Handled = true;
     }
 
